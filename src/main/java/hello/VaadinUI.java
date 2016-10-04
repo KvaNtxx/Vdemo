@@ -1,5 +1,7 @@
 package hello;
 
+import com.vaadin.server.VaadinSession;
+import com.vaadin.ui.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,12 +12,6 @@ import com.vaadin.data.util.BeanItemContainer;
 import com.vaadin.server.FontAwesome;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.spring.annotation.SpringUI;
-import com.vaadin.ui.Button;
-import com.vaadin.ui.Grid;
-import com.vaadin.ui.HorizontalLayout;
-import com.vaadin.ui.TextField;
-import com.vaadin.ui.UI;
-import com.vaadin.ui.VerticalLayout;
 
 @SpringUI
 @Theme("valo")
@@ -44,48 +40,65 @@ public class VaadinUI extends UI {
 
     @Override
     protected void init(VaadinRequest request) {
-        log.warn("QQQ");
+
         // build layout
         HorizontalLayout actions = new HorizontalLayout(filter, addNewBtn);
         VerticalLayout mainLayout = new VerticalLayout(actions, grid, editor);
         setContent(mainLayout);
 
-        // Configure layouts and components
-        actions.setSpacing(true);
-        mainLayout.setMargin(true);
-        mainLayout.setSpacing(true);
+        VaadinSession session = getSession();
+        if(session.getAttribute("auth") == null || session.getAttribute("auth").equals(Boolean.FALSE))
+        {
+            LoginForm loginForm = new LoginForm();
+            VerticalLayout loginLayout = new VerticalLayout(loginForm);
+            loginLayout.setHeight(100,Unit.PERCENTAGE);
+            loginLayout.setComponentAlignment(loginForm,Alignment.MIDDLE_CENTER);
+            setContent(loginLayout);
 
-        grid.setHeight(300, Unit.PIXELS);
-        grid.setColumns("id", "firstName", "lastName");
+            loginForm.addLoginListener((e)-> {
+                if(e.getLoginParameter("username").equals("root"))
+                    session.setAttribute("auth",true);
+                    this.init(request);
+            });
+        }
+        else {
+            // Configure layouts and components
+            actions.setSpacing(true);
+            mainLayout.setMargin(true);
+            mainLayout.setSpacing(true);
 
-        filter.setInputPrompt("Filter by last name");
+            grid.setWidth(100,Unit.PERCENTAGE);
+            grid.setHeight(300, Unit.PIXELS);
+            grid.setColumns("id", "firstName", "lastName");
 
-        // Hook logic to components
+            filter.setInputPrompt("Filter by last name");
 
-        // Replace listing with filtered content when user changes filter
-        filter.addTextChangeListener(e -> listCustomers(e.getText()));
+            // Hook logic to components
 
-        // Connect selected Customer to editor or hide if none is selected
-        grid.addSelectionListener(e -> {
-            if (e.getSelected().isEmpty()) {
+            // Replace listing with filtered content when user changes filter
+            filter.addTextChangeListener(e -> listCustomers(e.getText()));
+
+            // Connect selected Customer to editor or hide if none is selected
+            grid.addSelectionListener(e -> {
+                if (e.getSelected().isEmpty()) {
+                    editor.setVisible(false);
+                } else {
+                    editor.editCustomer((Customer) grid.getSelectedRow());
+                }
+            });
+
+            // Instantiate and edit new Customer the new button is clicked
+            addNewBtn.addClickListener(e -> editor.editCustomer(new Customer("", "")));
+
+            // Listen changes made by the editor, refresh data from backend
+            editor.setChangeHandler(() -> {
                 editor.setVisible(false);
-            }
-            else {
-                editor.editCustomer((Customer) grid.getSelectedRow());
-            }
-        });
+                listCustomers(filter.getValue());
+            });
 
-        // Instantiate and edit new Customer the new button is clicked
-        addNewBtn.addClickListener(e -> editor.editCustomer(new Customer("", "")));
-
-        // Listen changes made by the editor, refresh data from backend
-        editor.setChangeHandler(() -> {
-            editor.setVisible(false);
-            listCustomers(filter.getValue());
-        });
-
-        // Initialize listing
-        listCustomers(null);
+            // Initialize listing
+            listCustomers(null);
+        }
     }
 
     // tag::listCustomers[]
@@ -96,7 +109,7 @@ public class VaadinUI extends UI {
         }
         else {
             grid.setContainerDataSource(new BeanItemContainer(Customer.class,
-                    repo.findByLastNameStartsWithIgnoreCase(text)));
+                    repo.findByFirstNameIgnoreCaseContaining(text)));
         }
     }
     // end::listCustomers[]
