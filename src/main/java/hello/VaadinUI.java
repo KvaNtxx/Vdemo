@@ -1,5 +1,6 @@
 package hello;
 
+import com.vaadin.server.ThemeResource;
 import com.vaadin.server.VaadinSession;
 import com.vaadin.ui.*;
 import org.slf4j.Logger;
@@ -12,6 +13,7 @@ import com.vaadin.data.util.BeanItemContainer;
 import com.vaadin.server.FontAwesome;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.spring.annotation.SpringUI;
+import com.vaadin.ui.MenuBar.*;
 
 @SpringUI
 @Theme("valo")
@@ -41,33 +43,34 @@ public class VaadinUI extends UI {
     @Override
     protected void init(VaadinRequest request) {
 
-        // build layout
-        HorizontalLayout actions = new HorizontalLayout(filter, addNewBtn);
-        VerticalLayout mainLayout = new VerticalLayout(actions, grid, editor);
-        setContent(mainLayout);
-
         VaadinSession session = getSession();
-        if(session.getAttribute("auth") == null || session.getAttribute("auth").equals(Boolean.FALSE))
-        {
+
+        if (session.getAttribute("auth") == null || session.getAttribute("auth").equals(Boolean.FALSE)) {
             LoginForm loginForm = new LoginForm();
             VerticalLayout loginLayout = new VerticalLayout(loginForm);
-            loginLayout.setHeight(100,Unit.PERCENTAGE);
-            loginLayout.setComponentAlignment(loginForm,Alignment.MIDDLE_CENTER);
+            loginLayout.setHeight(100, Unit.PERCENTAGE);
+            loginLayout.setComponentAlignment(loginForm, Alignment.MIDDLE_CENTER);
             setContent(loginLayout);
 
-            loginForm.addLoginListener((e)-> {
-                if(e.getLoginParameter("username").equals("root"))
-                    session.setAttribute("auth",true);
-                    this.init(request);
+            loginForm.addLoginListener((e) -> {
+                if (e.getLoginParameter("username").equals("root"))
+                    session.setAttribute("auth", true);
+                this.init(request);
             });
         }
+
+        // build layout
+
         else {
+            HorizontalLayout actions = new HorizontalLayout(filter, addNewBtn);
+            VerticalLayout mainLayout = new VerticalLayout(actions, grid, editor);
+            setContent(mainLayout);
             // Configure layouts and components
             actions.setSpacing(true);
             mainLayout.setMargin(true);
             mainLayout.setSpacing(true);
 
-            grid.setWidth(100,Unit.PERCENTAGE);
+            grid.setWidth(100, Unit.PERCENTAGE);
             grid.setHeight(300, Unit.PIXELS);
             grid.setColumns("id", "firstName", "lastName");
 
@@ -99,6 +102,43 @@ public class VaadinUI extends UI {
             // Initialize listing
             listCustomers(null);
         }
+
+
+        MenuBar barmenu = new MenuBar();
+        ((Layout) getContent()).addComponent(barmenu);
+        ((VerticalLayout) getContent()).setComponentAlignment(barmenu, Alignment.TOP_LEFT);
+
+        MenuItem drinks = barmenu.addItem("Beverages", null, null);
+        final Label selection = new Label("-");
+        ((Layout) getContent()).addComponent(selection);
+        MenuBar.Command mycommand = new MenuBar.Command() {
+            public void menuSelected(MenuItem selectedItem) {
+                selection.setValue("Ordered a " +
+                        selectedItem.getText() +
+                        " from menu.");
+            }
+        };
+// Submenu item with a sub-submenu
+        MenuItem hots = drinks.addItem("Hot", null, null);
+        hots.addItem("Tea",
+                new ThemeResource("icons/tea-16px.png"), mycommand);
+        hots.addItem("Coffee",
+                new ThemeResource("icons/coffee-16px.png"), mycommand);
+
+// Another submenu item with a sub-submenu
+        MenuItem colds = drinks.addItem("Cold", null, null);
+        colds.addItem("Milk", null, mycommand);
+        colds.addItem("Weissbier", null, mycommand);
+
+// Another top-level item
+        MenuItem snacks = barmenu.addItem("Snacks", null, null);
+        snacks.addItem("Weisswurst", null, mycommand);
+        snacks.addItem("Bratwurst", null, mycommand);
+        snacks.addItem("Currywurst", null, mycommand);
+
+// Yet another top-level item
+        MenuItem servs = barmenu.addItem("Services", null, null);
+        servs.addItem("Car Service", null, mycommand);
     }
 
     // tag::listCustomers[]
@@ -106,8 +146,7 @@ public class VaadinUI extends UI {
         if (StringUtils.isEmpty(text)) {
             grid.setContainerDataSource(
                     new BeanItemContainer(Customer.class, repo.findAll()));
-        }
-        else {
+        } else {
             grid.setContainerDataSource(new BeanItemContainer(Customer.class,
                     repo.findByFirstNameIgnoreCaseContaining(text)));
         }
